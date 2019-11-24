@@ -1,8 +1,16 @@
 module Avtor exposing (..)
 
+import Browser exposing (UrlRequest(..))
+import Browser.Navigation as Nav
 import Http
 import Json.Decode as D
 import Json.Encode as E
+import Html exposing (..)
+import Html.Attributes exposing (..)
+import Html.Events exposing (onInput)
+import Url exposing (Url)
+import Url.Parser as Url exposing (Parser,(</>))
+
 
 type alias User = 
   { id    : String
@@ -21,36 +29,151 @@ type alias LoginDto =
   }
 
 type alias Model =
-  { location   : String
-  , apiVersion : String
+  { location    : String
+  , apiVersion  : String
+  , navKey      : Nav.Key
+  , page        : Page
+  , registerDto : RegisterDto
+  , loginDto    : LoginDto
   }
-
 
 type Msg
   = RegistrationPosted (Result Http.Error String)
   | DoneGot (Result Http.Error String)
+  | UrlChange Url.Url
+  | LinkClicked UrlRequest
+  | LoginMsg String
+  | EmailMsg String
+  | PasswordMsg String
+  | ConfirmPasswordMsg String
+  | LoginEmailEntered String
+  | LoginPasswordEntered String
+
+type MapType
+  = Register { dto : RegisterDto }
+  | Login    { dto : LoginDto    }
+
+type Page
+  = IndexPage
+  | RegisterPage
+  | LoginPage
+
+type Routes
+  = HomeRoute
+  | RegisterRoute
+  | LoginRoute
+
+viewPage : Page -> Model -> Html Msg
+viewPage page model =
+  case page of
+    IndexPage    -> indexView
+    RegisterPage -> registerView model
+    LoginPage    -> loginView model
 
 
-mapRegisterDtoToJsonBody : RegisterDto -> Http.Body
-mapRegisterDtoToJsonBody dto =
-  E.object
-    [ ("email"          , E.string dto.email    )
-    , ("password"       , E.string dto.password )
-    , ("confirmPassword", E.string dto.confirm  )
-    ]
-  |> Http.jsonBody
+urlParser : Parser (Page -> a) a
+urlParser =
+  Url.oneOf
+  [ Url.map IndexPage Url.top
+  , Url.map RegisterPage (Url.s "register")
+  , Url.map LoginPage (Url.s "login")
+  ]
 
-postRegisterDto : Model -> RegisterDto -> Cmd Msg
-postRegisterDto model dto =
+urlToPage : Url -> Page
+urlToPage url =
+  url
+  |> Url.parse urlParser
+  |> Maybe.withDefault IndexPage
+
+mapDto : MapType -> Http.Body
+mapDto mapType =
+  case mapType of
+    Register item ->
+      E.object
+        [ ("email"          , E.string item.dto.email    )
+        , ("password"       , E.string item.dto.password )
+        , ("confirmPassword", E.string item.dto.confirm  )
+        ]
+      |> Http.jsonBody
+    Login item ->
+      E.object
+        [ ("email"   , E.string item.dto.email    )
+        , ("password", E.string item.dto.password )
+        ]
+      |> Http.jsonBody
+
+postDto : Model -> MapType -> Cmd Msg
+postDto model mType =
   Http.post
-    { url    = model.location ++ "/api/" ++ model.apiVersion ++ "/avtor/register"
-    , body   = mapRegisterDtoToJsonBody dto
+    { url    = model.location ++ "/api/" ++ model.apiVersion ++ "/avtor/login"
+    , body   = mapDto mType
     , expect = Http.expectString RegistrationPosted 
     }
 
-getBlah : Cmd Msg
-getBlah =
-  Http.get
-    { url    = ""
-    , expect = Http.expectString DoneGot
+indexView : Html msg
+indexView =
+  div [] 
+  [ h2 [] [text "Home"]
+  , ul []
+    [ li [] [ a [ href "/login"] [ text "Login" ] ] 
+    , li [] [ a [ href "/register" ] [ text "Register" ] ]
+    ]
+  ]
+
+viewInput : String -> String -> String -> (String -> Msg) -> Html Msg
+viewInput iType placeholder_ value_ toMsg =
+  input [ type_ iType, placeholder placeholder_, value value_, onInput toMsg ] []
+
+loginView : Model -> Html Msg
+loginView model =
+  Html.form [] 
+    [ div [] [ label [] [ text "Email" ] ]
+    , div [] [ viewInput "text" "Email" model.loginDto.email LoginEmailEntered ]
+    , div [] [ label [] [ text "Password" ] ]
+    , div [] [ viewInput "text" ]
+    , div [] [ input [ type_ "button", onInput LoginMsg, value "Login"] [text "Login"] ]
+    ]
+
+registerView : Model -> Html Msg
+registerView _ =
+  Html.form [] 
+  [ div [] [ label [] [ text "Email" ] ]
+  , div [] [ viewInput "text" ]
+  , div [] [ label [] [ text "Password"] ]
+  , div [] [ viewInput "text" ]
+  , div [] [ label [] [ text "Confirm Password"]]
+  , div [] [ viewInput "text" ]
+  , div [] [ viewInput "submit" ]
+  ]
+
+init : () -> Url.Url -> Nav.Key -> (Model, Cmd Msg)
+init flags url key =
+  ( { navKey = key
+    , page   = urlToPage url
+    , location = ""
+    , apiVersion = "1"
     }
+  , Cmd.none
+  )
+
+view : Model -> Browser.Document Msg
+view model =
+  { title = "app"
+  , body =
+      [ h1 [] [ text "Awesome App" ] 
+      , case model.page of
+          IndexPage -> indexView
+          RegisterPage -> registerView model
+          LoginPage    -> loginView model
+      ]
+  }
+
+main =
+  Browser.application 
+  { init   = init
+  , update = update
+  , view   = view
+  , subscriptions = always Sub.none
+  , onUrlRequest = LinkClicked
+  , onUrlChange = UrlChange
+  }
