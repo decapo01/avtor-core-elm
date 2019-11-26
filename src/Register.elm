@@ -59,13 +59,13 @@ validateEmail email =
 validatePassword : String -> Result Problem String
 validatePassword password =
   let
-    pwLength         = password |> length
-    has8Chars        = pwLength >= 8
-    isLessThan18Char = pwLength <= 18
     hasUpperCase     = password |> any isUpper
     hasLowerCaase    = password |> any isLower
     hasSpecial       = password |> containsSpecial
     contiansDigit    = password |> any isDigit
+    pwLength         = password |> length
+    has8Chars        = pwLength >= 8
+    isLessThan18Char = pwLength <= 18
   in
   
   if has8Chars && isLessThan18Char && hasUpperCase && hasLowerCaase && hasSpecial && contiansDigit then
