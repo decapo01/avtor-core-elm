@@ -37,6 +37,8 @@ updateForm f model =
   ({ model | form = f model.form }, Cmd.none )
 
 validate : Form -> Result (List Problem) Form
+validate form =
+  List.concatMap ()
 
 
 formView : LoginForm -> Html Msg

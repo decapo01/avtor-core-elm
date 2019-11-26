@@ -49,6 +49,26 @@ type Msg
   | LoginEmailEntered String
   | LoginPasswordEntered String
 
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+  case msg of
+    LinkClicked urlRequest ->
+      case urlRequest of
+        Internal url ->
+            ( model
+            , Nav.pushUrl model.navKey (Url.toString url)
+            )
+        External url ->
+          ( model
+          , Nav.load url
+          )
+    UrlChange url ->
+      ( { model | page = urlToPage url }
+      , Cmd.none
+      )
+    LoginEmailEntered
+    _ -> ( model, Cmd.none )
+
 type MapType
   = Register { dto : RegisterDto }
   | Login    { dto : LoginDto    }
